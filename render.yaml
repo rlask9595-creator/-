@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: chart-signal
+    runtime: node
+    plan: free
+    branch: main
+    buildCommand: npm ci && npm test
+    startCommand: npm start
+    healthCheckPath: /api/status
+    envVars:
+      - key: NODE_VERSION
+        value: 24.22.1
+      - key: NODE_ENV
+        value: production
+      - key: CHART_API_KEY
+        sync: false

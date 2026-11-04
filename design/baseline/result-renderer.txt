@@ -1,0 +1,21 @@
+
+  currentResult = result; demoVisible = demo;
+  $('.result-panel').hidden = false;
+  $('#empty-state').hidden = true; $('#analysis-result').hidden = false; $('#result-badge').textContent = demo ? 'SAMPLE / 예시' : 'ANALYSIS';
+  const list = (items, cls = '') => `<ul class="result-list ${cls}">${items.map(item => `<li>${escape(item)}</li>`).join('')}</ul>`;
+  const insight = (label, value) => `<div class="insight"><div class="insight-label">${label}</div><p>${escape(value)}</p></div>`;
+  $('#analysis-result').innerHTML = `<div class="result-content">
+    ${demo ? '<div class="sample-notice">예시 전용 · 가상 차트와 미리 작성한 설명입니다. 업로드한 이미지의 분석 결과가 아닙니다.</div><img class="sample-thumb" src="/sample.svg" alt="예시용 가상 종목의 상승 추세 차트">' : ''}
+    <div class="result-meta"><span>${escape(result.symbol || '종목 확인 불가')} <span> / </span> ${escape(result.timeframe || '시간축 확인 불가')}</span><span>${demo ? '가상 데이터' : new Date(result.analyzedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span></div>
+    <div class="signal-card ${escape(result.signal)}"><div class="signal-top"><span class="signal-tag">${escape(labels[result.signal])} · ${result.readable ? '조건부 기술적 의견' : '판독 어려움'}</span><span class="quality">판독 근거 ${escape(qualityLabels[result.evidenceQuality])}</span></div><h3>${escape(result.title)}</h3><p>${escape(result.summary)}</p></div>
+    <div class="result-section-title">차트에서 읽은 흐름 <button id="copy-result">결과 복사 ↗</button></div>
+    <div class="insight-grid">${insight('01 / 추세', result.trend)}${insight('02 / 패턴', result.pattern)}${insight('03 / 거래량', result.volume)}</div>
+    <div class="levels"><div><span>지지선</span><strong>${escape(result.support || '확인 불가')}</strong></div><div><span>저항선</span><strong>${escape(result.resistance || '확인 불가')}</strong></div></div>
+    <div class="result-section-title">판단의 근거</div>${list(result.reasons)}
+    <div class="result-section-title">함께 살펴볼 위험</div>${list(result.risks, 'risk-list')}
+    <div class="next-step"><h4>↗ 다음으로 확인할 것</h4><p>${escape(result.nextStep)}</p></div>
+    <p class="invalidation">판단 무효화 조건 · ${escape(result.invalidation)}</p>
+    <p class="result-disclaimer">판독 근거 수준은 수익 확률이 아닙니다. 이미지 촬영 이후의 시장 변화는 반영하지 않습니다.</p>
+  </div>`;
+  $('#copy-result').addEventListener('click', copyResult);
+}

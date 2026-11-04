@@ -1,0 +1,16 @@
+{
+  "name": "chart-signal",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node --use-env-proxy --env-file-if-exists=.env server.mjs",
+    "dev": "node --use-env-proxy --env-file-if-exists=.env --watch server.mjs",
+    "test": "node --test",
+    "check:design": "node scripts/check-design.mjs",
+    "pretest": "npm run check:design"
+  }
+}
