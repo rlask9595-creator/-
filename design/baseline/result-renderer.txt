@@ -1,4 +1,10 @@
 
+  function historicalEntries(result, demo) {
+  if (demo || !image || !result.sequence) return '';
+  const entries = result.sequence.events.filter(e => e.stage === 'breakout');
+  const markers = entries.map((e,i) => Number.isFinite(e.x) && e.x>=0 && e.x<=1 ? `<line x1="${e.x*100}%" x2="${e.x*100}%" y1="34" y2="100%"/><circle cx="${e.x*100}%" cy="18" r="14"/><text x="${e.x*100}%" y="24">${i+1}</text>` : '').join('');
+  return `<div class="result-section-title">이 차트의 과거 매수 후보</div><p>그 시점의 완성봉으로 확인한 돌파입니다. 현재 매수 의견이나 수익이 보장된 최적 매수점은 아닙니다. 표시 위치는 이미지 판독에 따른 근사 위치입니다.</p>${entries.length ? `<div class="chart-annotation"><img src="${escape(image)}" alt="과거 돌파 확인 위치가 표시된 업로드 차트"><svg  aria-hidden="true">${markers}</svg></div><ol class="result-list">${entries.map(e=>`<li>${escape(e.confirmation)} · ${e.entryCandidate?'당시 매수 후보':'돌파 확인 · 당시에도 추격 진입 대기'} — ${escape(e.fact)}${e.x==null?' (이미지 좌표 미확인: 위치선 생략)':''}</li>`).join('')}</ol>` : '<p>확인 가능한 과거 돌파 매수 후보가 없습니다. 판독 부족 또는 조건 미충족이며, 좋은 매수 자리가 전혀 없었다는 뜻은 아닙니다.</p>'}`;
+}
   currentResult = result; demoVisible = demo;
   $('.result-panel').hidden = false;
   $('#empty-state').hidden = true; $('#analysis-result').hidden = false; $('#result-badge').textContent = demo ? 'SAMPLE / 예시' : 'ANALYSIS';
@@ -11,6 +17,7 @@
     <div class="result-section-title">차트에서 읽은 흐름 <button id="copy-result">결과 복사 ↗</button></div>
     <div class="insight-grid">${insight('01 / 추세', result.trend)}${insight('02 / 패턴', result.pattern)}${insight('03 / 거래량', result.volume)}</div>
     <div class="levels"><div><span>지지선</span><strong>${escape(result.support || '확인 불가')}</strong></div><div><span>저항선</span><strong>${escape(result.resistance || '확인 불가')}</strong></div></div>
+    ${historicalEntries(result, demo)}
     <div class="result-section-title">판단의 근거</div>${list(result.reasons)}
     <div class="result-section-title">함께 살펴볼 위험</div>${list(result.risks, 'risk-list')}
     <div class="next-step"><h4>↗ 다음으로 확인할 것</h4><p>${escape(result.nextStep)}</p></div>

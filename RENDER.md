@@ -54,6 +54,6 @@ Free 인스턴스는 서비스 중지·재시작 및 이용 한도가 있을 수
 
 기존 Render 서비스가 이 저장소의 `main`에 연결되어 있고 Auto-Deploy가 켜져 있으면 push 후 새 배포가 시작됩니다. 꺼져 있으면 해당 서비스에서 **Manual Deploy → Deploy latest commit**을 실행합니다. 새 서비스를 만들 필요는 없습니다.
 
-서비스 주소 뒤에 `/api/status`를 붙여 `policyVersion: "price-sequence-v1"`과 `deploymentCommit`이 GitHub 최신 커밋과 같은지 확인합니다. 이 응답에는 API 키 값이 포함되지 않습니다. Render의 Deploy 상태가 Live인지도 확인합니다.
+서비스 주소 뒤에 `/api/status`를 붙여 `policyVersion: "price-sequence-v2"`과 `deploymentCommit`이 GitHub 최신 커밋과 같은지 확인합니다. 이 응답에는 API 키 값이 포함되지 않습니다. Render의 Deploy 상태가 Live인지도 확인합니다.
 
 화면을 새로고침한 다음 차트를 다시 분석하세요. 기존 세션의 분석 기록은 이전 결과이므로 새 정책으로 자동 재분석되지 않습니다. 중기·1~3개월을 선택하고 같은 차트를 미보유/보유 중으로 각각 분석해 상단 관점과 행동 구분을 확인합니다. 규칙·한계 및 테스트 내역은 `docs/price-sequence.md`를 참고하세요.

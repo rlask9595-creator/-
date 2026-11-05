@@ -3,10 +3,11 @@ export const SEQUENCE_INSTRUCTIONS = `
 [최우선: 가격 순서 판독]
 기존 봉패턴·지표 의견보다 가격 순서가 우선이다. 이동평균과 거래량은 보조이며 5일선 이탈/첫 음봉/RSI만으로 매도하지 않는다.
 priceSequence에 화면 왼쪽부터 오른쪽까지 연속된 봉을 빠짐없이 추출한다(최대 180개). 임의로 주요 봉만 골라서는 안 된다. 밀집하여 개별 봉을 읽지 못하면 scale=unreadable, candles=[]로 반환하고 확대 요청한다.
+각 봉의 x는 전체 원본 이미지 폭에서 봉 중심의 가로 위치를 0~1로 표현한다. 읽히지 않으면 null이며 균등 간격으로 만들어내지 않는다.
 각 봉의 high,low,close는 축이 읽히면 대략적인 가격, 읽히지 않으면 동일한 상대 좌표(위로 갈수록 큰 값)를 쓴다. scale=price/relative/unreadable. 임의 날짜/정확한 가격 금지. label은 읽히는 날짜 또는 '왼쪽부터 N번째 봉'. completed는 마감 확인 시에만 true; 오른쪽 끝 마감이 불확실하면 false. ma20은 명시된 20일선만 같은 좌표로 추출하고 없으면 null.
 커서 선택값, 평균 매입가, 수평 안내선, 화면 상단 OHLC를 최신 봉 값 또는 지지저항으로 사용하지 않는다. 누락·판독 불확실 또는 봉 색상·몸통의 어느 쪽이 종가인지 알 수 없으면 limitations에 적고 quality=low로 한다. 최종 판정은 서버가 추출 봉의 순서로 계산한다. 미래 봉으로 이전 신호를 앞당기지 않는다. 거래량과 이동평균 설명에 단독 매매 권고를 넣지 않는다.
 `;
-const candleProperties = {label:{type:'string'},high:{type:'number'},low:{type:'number'},close:{type:'number'},completed:{type:'boolean'},ma20:{type:['number','null']}};
+const candleProperties = {label:{type:'string'},x:{type:['number','null']},high:{type:'number'},low:{type:'number'},close:{type:'number'},completed:{type:'boolean'},ma20:{type:['number','null']}};
 export const sequenceSchema = {type:'object',additionalProperties:false,properties:{scale:{type:'string',enum:['price','relative','unreadable']},quality:{type:'string',enum:['high','medium','low']},limitations:{type:'string'},candles:{type:'array',maxItems:180,items:{type:'object',additionalProperties:false,properties:candleProperties,required:Object.keys(candleProperties)}}},required:['scale','quality','limitations','candles']};
 export const stages = {unknown:'판독 보류',pullback:'눌림 관찰',wick:'돌파 미확인',breakout:'돌파 매수 후보',maintained:'돌파 유지',failed:'돌파 실패 경고',trend:'추세 유지',warning:'첫 경고',rebound:'반등 시도',lower:'낮은 고점 확인',sell:'비중 축소·매도 검토',damaged:'중기 상승 구조 훼손'};
 export function analyzeSequence(sequence, position='none') {
@@ -15,7 +16,7 @@ export function analyzeSequence(sequence, position='none') {
   const usable=sequence && sequence.scale!=='unreadable' && sequence.quality!=='low';
   const location=i=>i==null?'확인 불가':`${bars[i].label} (왼쪽부터 ${i+1}번째 봉)`;
   const level=v=>v==null?'확인 불가':sequence.scale==='price'?`약 ${Number(v.toPrecision(4)).toLocaleString('ko-KR')}`:`상대 높이 ${v.toFixed(1)} (가격 아님)`;
-  function emit(next,i,formation=i,fact='') { if(stage!==next) { stage=next; events.push({stage:next,label:stages[next],formedAt:formation,confirmedAt:i,formation:location(formation),confirmation:location(i),fact,resistance:zone?{low:zone.low,high:zone.high,sources:zone.points.map(p=>p.i)}:null}); } }
+  function emit(next,i,formation=i,fact='') { if(stage!==next) { stage=next; events.push({stage:next,label:stages[next],formedAt:formation,confirmedAt:i,formation:location(formation),confirmation:location(i),x:Number.isFinite(bars[i].x)&&bars[i].x>=0&&bars[i].x<=1?bars[i].x:null,entryCandidate:next==='breakout' && breakout && bars[i].close-zone.high<=2*breakout.range,fact,resistance:zone?{low:zone.low,high:zone.high,sources:zone.points.map(p=>p.i)}:null}); } }
   if(usable) for(let i=0;i<bars.length;i++) {
     const b=bars[i], prev=bars[i-1];
     if(!b.completed || ![b.high,b.low,b.close].every(Number.isFinite) || b.low>b.close || b.close>b.high) break;

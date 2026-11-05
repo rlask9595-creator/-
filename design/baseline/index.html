@@ -36,7 +36,7 @@
           <span class="file-types">PNG, JPG, WEBP <i>·</i> 최대 8MB</span>
         </div>
         <div class="upload-alternatives"><span>파일로 준비하셨나요?</span><button id="choose-image" type="button">파일 선택 ↗</button></div>
-        <div class="preview" id="preview" hidden><div class="preview-top"><span id="file-name"></span><button id="remove-image" aria-label="이미지 제거">×</button></div><img id="chart-preview" alt="업로드한 차트"><div class="preview-bottom"><span>✓ 이미지 준비 완료</span><button id="replace-image">다른 이미지 선택 ↗</button></div></div>
+        <div class="preview" id="preview" hidden><div class="preview-top"><span id="file-name"></span><button id="remove-image" aria-label="이미지 제거">×</button></div><img id="chart-preview" alt="업로드한 차트"><div class="preview-bottom"><button id="enlarge-chart">크게 보기 ↗</button><button id="replace-image">다른 이미지 선택 ↗</button></div></div>
         <p id="upload-status" class="upload-status" role="status" aria-live="polite" hidden></p>
         <details class="capture-help"><summary>스크린샷 캡처 방법</summary><div class="capture-keys"><span>Windows <kbd>Win</kbd> + <kbd>Shift</kbd> + <kbd>S</kbd></span><span>Mac <kbd>⌃</kbd> + <kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>4</kbd></span></div></details>
 
@@ -55,6 +55,7 @@
     <footer><p><span>ⓘ</span> 이미지 기반 기술적 분석 참고 자료입니다. 실시간 시세·뉴스·재무정보를 반영하지 않으며, 수익을 보장하지 않습니다.</p><span>© 2026 CHART SIGNAL</span></footer>
   </main>
   </div>
+  <dialog id="chart-dialog"><div class="dialog-heading"><h2>차트 크게 보기</h2><button class="close-dialog" aria-label="닫기">×</button></div><button id="chart-zoom-toggle">원본 크기 / 화면 맞춤</button><div class="chart-zoom"><img id="chart-large" alt="확대된 업로드 차트"></div></dialog>
   <dialog id="settings-dialog"><form id="settings-form"><div class="dialog-heading"><h2>분석 연결 설정</h2><button type="button" class="close-dialog" aria-label="닫기">×</button></div><p>차트 이미지를 분석하려면 OpenAI API 연결이 필요합니다. API 사용 요금은 연결한 계정에 청구됩니다.</p><label for="api-key">OpenAI API 키</label><input id="api-key" type="password" autocomplete="off" placeholder="sk-…"><p class="dialog-note" id="key-note">키는 현재 탭의 메모리에서만 보관하며, 분석 요청 시 서버로 전송합니다. 새로고침하면 삭제됩니다.</p><p class="dialog-note">공개 배포 시 서버에 접근 제어와 사용량 제한을 추가하세요.</p><div class="dialog-actions"><button id="clear-key" type="button">키 삭제</button><button class="primary-button" type="submit">설정 적용</button></div></form></dialog>
   <dialog id="history-dialog"><div class="dialog-heading"><h2>이번 세션 기록</h2><button type="button" class="close-dialog" aria-label="닫기">×</button></div><p class="dialog-note">현재 탭에서 완료한 실제 분석만 표시합니다. 새로고침하면 삭제됩니다.</p><div id="history-list"></div></dialog>
 </body></html>
