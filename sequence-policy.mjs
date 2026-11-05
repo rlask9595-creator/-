@@ -16,7 +16,7 @@ export function analyzeSequence(sequence, position='none') {
   let stage='unknown', zone=null, breakout=null, warning=null, peak=null, cycle=0, last=null, touched=null;
   const gaps=[];
   const usable=sequence && sequence.scale!=='unreadable' && sequence.quality!=='low';
-  const location=i=>i==null?'확인 불가':`${bars[i].label} (왼쪽부터 ${i+1}번째 봉)`;
+  const location=i=>i==null?'확인 불가':`${bars[i].label} (추출 구간 내 ${i+1}번째 봉)`;
   const level=v=>v==null?'확인 불가':sequence.scale==='price'?`약 ${Number(v.toPrecision(4)).toLocaleString('ko-KR')}`:'해당 봉의 고점·저점 구간 (가격축 확인 불가)';
   function emit(next,i,formation=i,fact='') { if(stage!==next) { stage=next; events.push({stage:next,label:stages[next],formedAt:formation,confirmedAt:i,formation:location(formation),confirmation:location(i),x:Number.isFinite(bars[i].x)&&bars[i].x>=0&&bars[i].x<=1?bars[i].x:null,entryCandidate:next==='breakout' && breakout && bars[i].close-zone.high<=2*breakout.range,fact,invalidation:['sell','damaged','sharp','warning','failed'].includes(next)?`이탈한 구간 ${level(warning?.reclaim??zone?.high??bars[formation].low)} 종가 회복 및 이전 고점 회복 시 하락 시나리오 재검토`:zone?`${level(zone.high)} 종가 재이탈 시 돌파 판단 재검토`:'이탈한 주요 지지와 이전 고점 회복 시 하락 판단 재검토',patternKind:next==='breakout'?(zone.points.at(-1).i-zone.points[0].i>=40?'장기 횡보 돌파':events.some(e=>['breakout','retest'].includes(e.stage))?'상승 중 재돌파':'반복 저항 최초 돌파'):stages[next],resistance:zone?{low:zone.low,high:zone.high,sources:zone.points.map(p=>p.i)}:null}); } }
   if(usable) for(let i=0;i<bars.length;i++) {
