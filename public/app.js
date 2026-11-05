@@ -43,7 +43,12 @@ function setPosition(value) {
 $('#not-holding').addEventListener('click', () => setPosition('none'));
 $('#holding').addEventListener('click', () => setPosition('holding'));
 $('#period').addEventListener('change', clearResult);
+function syncAnalysisActions() {
+  $('#hero-sample-button').firstChild.textContent = image ? '내 차트 분석 ' : '예시 살펴보기 ';
+  $('#sample-button').firstChild.textContent = image ? '내 차트 분석하기 ' : '예시 분석 살펴보기 ';
+}
 function clearResult() {
+  syncAnalysisActions();
   currentResult = null; demoVisible = false;
   $('.result-panel').hidden = true;
   $('#analysis-result').hidden = true; $('#empty-state').hidden = false; $('#result-badge').textContent = 'OUTPUT';
@@ -106,13 +111,13 @@ function busy(value) {
   $('#loading-state').hidden = !value;
   $('#analyze-button').disabled = value || !image;
   $('#analyze-label').textContent = value ? '분석 중…' : '차트 분석하기';
-  for (const selector of ['#period', '#not-holding', '#holding', '#remove-image', '#replace-image', '#choose-image', '#sample-button']) $(selector).disabled = value;
+  for (const selector of ['#period', '#not-holding', '#holding', '#remove-image', '#replace-image', '#choose-image', '#sample-button', '#hero-sample-button']) $(selector).disabled = value;
   $('.result-panel').setAttribute('aria-busy', String(value));
 }
 $('#analyze-button').addEventListener('click', async () => {
   if (!image || controller) return;
-  if (!serverConfigured && !apiKey) { error('실제 분석을 위해 연결 설정에서 API 키를 입력해 주세요.'); showSettings(); return; }
-  error(); $('#empty-state').hidden = true; $('#analysis-result').hidden = true; $('#result-badge').textContent = 'ANALYZING';
+  if (!serverConfigured && !apiKey) { clearResult(); error('실제 분석을 위해 연결 설정에서 API 키를 입력해 주세요.'); showSettings(); return; }
+  clearResult(); error(); $('#empty-state').hidden = true; $('#analysis-result').hidden = true; $('#result-badge').textContent = 'ANALYZING';
   controller = new AbortController(); busy(true);
   try {
     const response = await fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: controller.signal, body: JSON.stringify({ image, period: $('#period').value, position, ...(apiKey ? { apiKey } : {}) }) });
@@ -176,7 +181,11 @@ const sample = {
   nextStep: '가상 저항선 ₩52,000 위에서 종가가 형성되고 거래량이 증가하는지 확인합니다.',
   invalidation: '가상 지지선 ₩48,000 아래로 종가가 내려가면 상승 흐름을 재검토합니다.'
 };
-$('#sample-button').addEventListener('click', () => { if (!controller) renderResult(sample, true); });
+$('#sample-button').addEventListener('click', () => {
+  if (controller) return;
+  if (image) { $('#analyze-button').click(); return; }
+  renderResult(sample, true);
+});
 $('#history-button').addEventListener('click', () => {
   const list = $('#history-list'); list.replaceChildren();
   if (!history.length) { const p = document.createElement('p'); p.textContent = '아직 완료한 분석이 없습니다.'; p.className = 'dialog-note'; list.append(p); }
@@ -191,7 +200,7 @@ $('#history-button').addEventListener('click', () => {
       for (const [id, selected] of [['#not-holding', position === 'none'], ['#holding', position === 'holding']]) { $(id).classList.toggle('selected', selected); $(id).setAttribute('aria-pressed', String(selected)); }
       $('#chart-preview').src = image; $('#file-name').textContent = '세션 기록의 차트 이미지'; $('#preview').hidden = false; $('#drop-zone').hidden = true; $('#analyze-button').disabled = false;
       $('#upload-status').hidden = true;
-      renderResult(entry.result, false); error(); $('#history-dialog').close();
+      syncAnalysisActions(); renderResult(entry.result, false); error(); $('#history-dialog').close();
     });
     list.append(button);
   });

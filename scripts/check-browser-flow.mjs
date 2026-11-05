@@ -1,0 +1,72 @@
+// Requires a running app on localhost:3000 and /usr/bin/chromium. API responses are mocked.
+import { spawn } from 'node:child_process';
+import { writeFile, mkdtemp, rm } from 'node:fs/promises';
+import assert from 'node:assert/strict';
+const profile = await mkdtemp('/tmp/chart-chromium-');
+const browser = spawn('/usr/bin/chromium', ['--headless', '--no-sandbox', '--disable-dev-shm-usage', '--no-proxy-server', '--remote-debugging-port=9223', `--user-data-dir=${profile}`, 'about:blank'], { stdio: 'ignore' });
+let ws;
+try {
+ let targets;
+ for (let i=0; i<60;i++) { try { targets=await (await fetch('http://127.0.0.1:9223/json')).json(); break; } catch { await new Promise(r=>setTimeout(r,150)); } }
+ assert.ok(targets, 'Browser started');
+ ws = new WebSocket(targets.find(t=>t.type==='page').webSocketDebuggerUrl);
+ await new Promise(r=>ws.addEventListener('open',r,{once:true}));
+ let id=0; const pending=new Map(); const errors=[];
+ ws.addEventListener('message',event=> { const m=JSON.parse(event.data); if(m.id) {const p=pending.get(m.id);pending.delete(m.id);m.error?p.reject(new Error(JSON.stringify(m.error))):p.resolve(m.result);} if(m.method==='Runtime.exceptionThrown')errors.push(m.params.exceptionDetails.text); });
+ const send=(method,params={})=>new Promise((resolve,reject)=>{const n=++id;pending.set(n,{resolve,reject});ws.send(JSON.stringify({id:n,method,params}));});
+ const evaluate=async expression=> {const r=await send('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(r.exceptionDetails)throw new Error(JSON.stringify(r.exceptionDetails));return r.result.value;};
+ const wait=async expression=>{for(let i=0;i<70;i++){if(await evaluate(expression))return;await new Promise(r=>setTimeout(r,100));}throw new Error('Timed out: '+expression);};
+ await send('Runtime.enable'); await send('Page.enable');
+ await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1100,deviceScaleFactor:1,mobile:false});
+ await send('Page.navigate',{url:'http://127.0.0.1:3000'});
+ await wait(`document.querySelector('#sample-button') && document.readyState==='complete'`);
+ await evaluate(`document.fonts.ready.then(()=>true)`);
+ assert.equal(await evaluate(`document.fonts.check('500 14px Pretendard')`),true);
+ assert.equal(await evaluate(`document.querySelector('#analyze-button').disabled`),true);
+ assert.equal(await evaluate(`document.documentElement.scrollWidth <= innerWidth`),true);
+ let shot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:true});await writeFile('/tmp/chart-signal-desktop.png',Buffer.from(shot.data,'base64'));
+ await evaluate(`document.querySelector('#hero-sample-button').click()`);
+ await evaluate(`window.scrollTo({top:0,behavior:'instant'})`);
+ assert.equal(await evaluate(`!document.querySelector('#analysis-result').hidden && !!document.querySelector('.sample-notice')`),true);
+ await new Promise(r=>setTimeout(r,300));
+ let resultShot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:true});await writeFile('/tmp/chart-signal-result.png',Buffer.from(resultShot.data,'base64'));
+ await evaluate(`loadFile(new File(['test'], 'invalid.svg', {type:'image/svg+xml'}))`);
+ assert.match(await evaluate(`document.querySelector('#error').textContent`),/PNG/);
+ await evaluate(`new Promise(resolve=> { const canvas=document.createElement('canvas');canvas.width=400;canvas.height=250;canvas.getContext('2d').fillRect(0,0,400,250);canvas.toBlob(async blob=>{await loadFile(new File([blob],'test-chart.png',{type:'image/png'}));resolve();}); })`);
+ assert.equal(await evaluate(`document.querySelector('#analyze-button').disabled`),false);
+ assert.equal(await evaluate(`document.querySelector('#analysis-result').hidden`),true);
+ assert.match(await evaluate(`document.querySelector('#hero-sample-button').textContent`),/내 차트 분석/);
+ await evaluate(`document.querySelector('#hero-sample-button').click()`);
+ assert.equal(await evaluate(`document.querySelector('#settings-dialog').open`),true);
+ let modalShot=await send('Page.captureScreenshot',{format:'png'});await writeFile('/tmp/chart-signal-settings.png',Buffer.from(modalShot.data,'base64'));
+ await evaluate(`document.querySelector('#api-key').value='browser-test-key';document.querySelector('#settings-form').requestSubmit()`);
+ assert.equal(await evaluate(`document.querySelector('#settings-dialog').open`),false);
+ assert.equal(await evaluate(`sessionStorage.length + localStorage.length`),0);
+ await evaluate(`window.originalFetch=window.fetch;window.sentImages=[];window.fetch=async(url,options)=>{if(url!=='/api/analyze')return originalFetch(url,options);sentImages.push(JSON.parse(options.body).image);return Response.json({...sample,symbol:'업로드 응답 테스트 종목',analyzedAt:new Date().toISOString()});};document.querySelector('#hero-sample-button').click()`);
+ await wait(`document.querySelector('#history-count').textContent==='1'`);
+ assert.equal(await evaluate(`document.querySelector('.sample-notice')===null`),true);
+ assert.equal(await evaluate(`sentImages.length===1 && sentImages[0]===document.querySelector('#chart-preview').src`),true);
+ assert.match(await evaluate(`document.querySelector('.result-meta').textContent`),/업로드 응답 테스트 종목/);
+ assert.equal(await evaluate(`document.querySelector('#result-badge').textContent`),'ANALYSIS');
+ await evaluate(`document.querySelector('#history-button').click()`);
+ assert.equal(await evaluate(`document.querySelectorAll('.history-item').length`),1);
+ await evaluate(`document.querySelector('.history-item').click()`);
+ assert.equal(await evaluate(`document.querySelector('#history-dialog').open`),false);
+ await evaluate(`window.fetch=async()=>Response.json({error:'테스트 연결 실패'},{status:429});document.querySelector('#sample-button').click()`);
+ await wait(`document.querySelector('#error').textContent==='테스트 연결 실패'`);
+ assert.equal(await evaluate(`document.querySelector('#analysis-result').hidden && document.querySelector('#result-badge').textContent !== 'SAMPLE / 예시' && currentResult===null`),true);
+ assert.equal(await evaluate(`document.querySelector('#analyze-button').disabled`),false);
+ await evaluate(`document.querySelector('#remove-image').click()`);
+ assert.match(await evaluate(`document.querySelector('#hero-sample-button').textContent`),/예시 살펴보기/);
+ assert.equal(await evaluate(`document.querySelector('#analyze-button').disabled`),true);
+ for(const width of [320,360,690,768,850,1024,1280]) {
+ await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});
+ assert.equal(await evaluate(`document.documentElement.scrollWidth <= innerWidth`),true, 'No horizontal overflow at '+width);
+ }
+ await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+ assert.equal(await evaluate(`document.documentElement.scrollWidth <= innerWidth`),true);
+ await evaluate(`window.scrollTo({top:0,behavior:'instant'})`);
+ shot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:true});await writeFile('/tmp/chart-signal-mobile.png',Buffer.from(shot.data,'base64'));
+ assert.deepEqual(errors,[]);
+ console.log('PASS: Upload routes both sample buttons to actual image request, missing key prompts settings, quota errors never show demo, removal restores demo; Desktop/mobile layout, sample labeling, invalid upload, image preview, API settings, no key persistence, result rendering, history, error recovery, removal; no browser exceptions.');
+} finally {ws?.close();browser.kill();await new Promise(r=>browser.once('exit',r));await rm(profile,{recursive:true,force:true});}
