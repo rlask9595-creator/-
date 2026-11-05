@@ -1,3 +1,4 @@
+import {endpointMismatch} from './reference-policy.mjs';
 import { analyzeSequence, sequenceSchema, stages } from './sequence-policy.mjs';
 const str={type:'string'};
 const choice=values=>({type:'string',enum:values});
@@ -7,7 +8,8 @@ export const windowsSchema={type:'array',maxItems:6,items:object({location:str,c
 export const priceContextSchema=object({precision:choice(['exact','approximate','relative','unknown']),support:str,resistance:str,evidence:str});
 const historicalStages=['breakout','retest','failed','warning','sell','damaged','sharp'];
 export function assessChart(raw, context={}) {
-  const source=raw.priceSequence;
+  const mismatch=endpointMismatch(raw);
+  const source=mismatch?{...raw.priceSequence,quality:'low',limitations:'추출된 마지막 봉이 관찰된 오른쪽 끝과 일치하지 않음. 오른쪽 가격·날짜축을 함께 확인해야 합니다.'}:raw.priceSequence;
   const lastBarState=context.lastBarState || 'unknown';
   const currentSource=source?structuredClone(source):null;
   const normalizedHistorical=(currentSource?.candles.slice(0,-1)||[]).filter(b=>!b.completed).length;
@@ -18,6 +20,7 @@ export function assessChart(raw, context={}) {
   const current=analyzeSequence(raw.readable?currentSource:null,context.position);
   const historical=[];
   const unavailable=[];
+  const historicalUnavailable=[];
   const addEvents=(r,location,kind='unknown')=>{
     for(const event of r.events.filter(e=>historicalStages.includes(e.stage))) {
       const candidate={...event,window:location,source:'extracted_candles',status:event.stage==='failed'?'failed':'confirmed'};
@@ -34,7 +37,7 @@ export function assessChart(raw, context={}) {
     for(const b of s.candles) b.completed=endpoint && ((b.x!=null && b.x===endpoint.x) || b.label===endpoint.label)?lastBarState==='closed':true;
     const result=analyzeSequence(s,context.position);
     addEvents(result,window.location,window.context);
-    if(result.stage==='unknown') unavailable.push(`${window.location}: ${s.limitations || '연속 봉 판독 근거 부족'}`);
+    if(result.stage==='unknown') historicalUnavailable.push(`${window.location}: ${s.limitations || '연속 봉 판독 근거 부족'}`);
   }
   historical.sort((a,b)=>(a.x??1)-(b.x??1));
   const sufficient=current.usableBars>=5 && source?.quality!=='low' && source?.scale!=='unreadable';
@@ -53,7 +56,7 @@ export function assessChart(raw, context={}) {
   if(current.gaps.length) unavailable.push(...current.gaps.map(g=>`최근 구간 ${g.index+1}번째 봉: ${g.reason}`));
   if(lastBarState!=='closed') unavailable.push(lastBarState==='open'?'사용자 선택: 마지막 봉 진행 중. 이전 완성봉 기준 분석':'마지막 봉 상태 모름: 마지막 봉을 제외하고 분석');
   const signal=sufficient?current.signal:'hold';
-  const title=!sufficient?'분석 정보 부족':context.position==='holding'?(signal==='sell'?'비중 축소 검토':'보유 유지'):signal==='buy'?'조건부 진입 검토':'신규 진입 대기';
+  const title=!sufficient?'판독 정보 부족':context.position==='holding'?(signal==='sell'?'비중 축소 검토':'보유 유지'):signal==='buy'?'조건부 진입 검토':'신규 진입 대기';
   const event=current.events.at(-1);
   let summary=!sufficient?`현재 판단에 필요한 연속 봉이 부족합니다. ${unavailable[0]||'최근 고점·저점이 보이도록 확대해 주세요.'}`:event?.fact || '최근 완성봉에서 진입을 확인할 종가 돌파가 아직 나타나지 않았습니다.';
   if(sufficient && overhead==null && current.breakout?.valid && !current.entry && ['breakout','maintained','retest'].includes(current.stage)) summary=lastBarState!=='closed'?`저항 ${current.resistance} 종가 돌파는 확인됐지만 마지막 봉의 마감이 확인되지 않아 신규 진입은 기다립니다.`:`돌파 흐름은 유지되지만 가격이 돌파 구간 ${current.resistance}에서 멀어져 신규 진입은 기다립니다.`;
@@ -73,7 +76,7 @@ export function assessChart(raw, context={}) {
   if(!levels.resistance && observed?.resistance && observed.precision!=='unknown') levels.resistance=`${observed.resistance} (이미지 관찰·순서 미검증)`;
   if(levels.precision==='unknown' && observed) levels.precision=observed.precision;
   const overview=(raw.chartOverview||[]);
-  return {current:{...current,signal,title,summary,evidence,context:{period:context.period,position:context.position||'none',lastBarState,lastBarSource:lastBarState==='unknown'?'unknown':'user'},nextStep:sufficient?(overhead!=null?`위쪽 저항 약 ${Number(overhead.toPrecision(4)).toLocaleString('ko-KR')}를 종가로 넘고 유지하는지 확인하세요.`:current.breakout?.valid && !current.entry && ['breakout','maintained','retest'].includes(current.stage)?`돌파 구간 ${current.resistance} 위에서 종가 지지를 유지하는지, 눌림 뒤 단기 고점을 다시 회복하는지 확인하세요.${lastBarState!=='closed'?' 마지막 봉의 마감 상태도 확인해 주세요.':''}`:current.nextStep):'최근 고점·저점과 가격축이 보이는 구간을 확대해 다시 분석하세요. 확인된 과거 후보는 아래에 별도로 남겨두었습니다.'},historical,unavailable:[...new Set(unavailable)],overview,levels,
+  return {current:{...current,signal,title,summary,evidence,context:{period:context.period,position:context.position||'none',lastBarState,lastBarSource:lastBarState==='unknown'?'unknown':'user'},nextStep:sufficient?(overhead!=null?`위쪽 저항 약 ${Number(overhead.toPrecision(4)).toLocaleString('ko-KR')}를 종가로 넘고 유지하는지 확인하세요.`:current.breakout?.valid && !current.entry && ['breakout','maintained','retest'].includes(current.stage)?`돌파 구간 ${current.resistance} 위에서 종가 지지를 유지하는지, 눌림 뒤 단기 고점을 다시 회복하는지 확인하세요.${lastBarState!=='closed'?' 마지막 봉의 마감 상태도 확인해 주세요.':''}`:current.nextStep):'최근 고점·저점과 가격축이 보이는 구간을 확대해 다시 분석하세요. 확인된 과거 후보는 아래에 별도로 남겨두었습니다.'},historical,unavailable:[...new Set(unavailable)],historicalUnavailable,overview,levels,
     historyStatus:historical.length?'confirmed':(raw.historicalWindows||[]).some(w=>w.sequence.quality!=='low'&&w.sequence.candles.length>=5)||current.usableBars>=5?'conditions_not_met':'unavailable',
-    diagnostics:{schema:'valid',provider:rawObservation,policy:{signal,title,stage:current.stage,usableBars:current.usableBars,excluded:current.gaps,historicalCount:historical.length,lastBarState,normalizedHistorical},display:{title,summary,evidence},note:'요청별 메모리 내 비교. 이미지·API 키 미포함. 원문 응답·사용자 이미지·API 키를 로그나 파일에 저장하지 않음.'}};
+    diagnostics:{schema:'valid',endpointMismatch:mismatch,observation:raw.observation||null,provider:rawObservation,policy:{signal,title,stage:current.stage,usableBars:current.usableBars,excluded:current.gaps,historicalCount:historical.length,lastBarState,normalizedHistorical},display:{title,summary,evidence},note:'요청별 메모리 내 비교. 이미지·API 키 미포함. 원문 응답·사용자 이미지·API 키를 로그나 파일에 저장하지 않음.'}};
 }

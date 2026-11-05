@@ -4,8 +4,8 @@ import { createApp } from '../server.mjs';
 const image = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aT7sAAAAASUVORK5CYII=';
 const request = { image, period: '중기 · 1~3개월', position: 'none', lastBarState:'closed' };
 const indicators = {chartInterval:'daily',gapType:'unknown',gapFill:'unknown',gapRetest:'unconfirmed',gapZone:'확인 불가',gapEvidence:['경계 미확인','메움 미확인','재시험 미확인'],ma5Cross:'unknown',ma5Slope:'unknown',ma20Slope:'unknown',maConfirmation:'unavailable',ma5:'확인 불가',ma20:'확인 불가',ma60:'확인 불가',ma120:'확인 불가',maEvidence:['5선 미표시','20선 미표시','60/120선 미표시'],bbPosition:'unknown',bbRegime:'unknown',bbConfirmation:'unavailable',bbEvidence:['밴드 미표시','위치 미확인','후속 반응 미확인'],indicatorSummary:'지표 확인 불가'};
-const priceSequence={scale:'price',quality:'high',limitations:'테스트 합성 봉',candles:[10,12,15,12,11,12,15.2,12,11,12,13,16].map((v,i)=>({label:`봉 ${i+1}`,x:(i+1)/180,high:v+.5,low:v-.5,close:v,completed:true,ma20:null,volumeExpansion:'unknown'}))};
-const result = { chartOverview:[],historicalWindows:[],priceContext:{precision:'unknown',support:'',resistance:'',evidence:''},priceSequence, ...indicators, patternType: 'reversal', patternStatus: 'confirmed', patternBias: 'bullish', priorTrend: 'down', candleDirection: 'known', patternLocation: '오른쪽 끝 4~2번째 봉', confirmation: '후속 종가가 패턴 고점 위에서 형성됨', patternEvidence: ['하락 뒤 2봉 몸통 장악', '후속 종가 돌파 관찰', '양음 방향 확인'], readable: true, signal: 'buy', title: '상승 확인', summary: '조건부 의견', symbol: null, timeframe: null, evidenceQuality: 'medium', trend: '상승', pattern: '확인 불가', volume: '확인 불가', support: null, resistance: null, reasons: ['저점 상승'], risks: ['돌파 실패'], nextStep: '거래량 확인', invalidation: '지지 이탈' };
+const priceSequence={scale:'price',quality:'high',limitations:'테스트 합성 봉',candles:[10,12,15,12,11,12,15.2,12,11,12,13,16].map((v,i)=>({label:`봉 ${i+1}`,x:(i+1)/180,high:v+.5,low:v-.5,close:v,completed:true,date:null,ma20:null,volumeExpansion:'unknown'}))};
+const result = { observation:{visiblePeriod:'날짜 미확인',endpointDate:null,endpointLabel:'오른쪽 마지막 봉',endpointX:12/180,endpointEvidence:'오른쪽 끝',priceAxisReadable:true,rightEdgeStructure:'반복 저항 돌파',unreadable:[],priceLabels:[]},chartOverview:[],historicalWindows:[],priceContext:{precision:'unknown',support:'',resistance:'',evidence:''},priceSequence, ...indicators, patternType: 'reversal', patternStatus: 'confirmed', patternBias: 'bullish', priorTrend: 'down', candleDirection: 'known', patternLocation: '오른쪽 끝 4~2번째 봉', confirmation: '후속 종가가 패턴 고점 위에서 형성됨', patternEvidence: ['하락 뒤 2봉 몸통 장악', '후속 종가 돌파 관찰', '양음 방향 확인'], readable: true, signal: 'buy', title: '상승 확인', summary: '조건부 의견', symbol: null, timeframe: null, evidenceQuality: 'medium', trend: '상승', pattern: '확인 불가', volume: '확인 불가', support: null, resistance: null, reasons: ['저점 상승'], risks: ['돌파 실패'], nextStep: '거래량 확인', invalidation: '지지 이탈' };
 async function withServer(options, fn) {
   const server = createApp(options);
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -16,7 +16,7 @@ function post(url, body = request, extra = {}) { return fetch(url + '/api/analyz
 test('serves app, connection state and restrictive headers; keeps environment files private', async () => {
   await withServer({ apiKey: '' }, async url => {
     const response = await fetch(url); assert.equal(response.status, 200); assert.match(await response.text(), /차트 분석하기/); assert.match(response.headers.get('content-security-policy'), /frame-ancestors 'none'/);
-    assert.deepEqual(await (await fetch(url + '/api/status')).json(), { configured: false, model: 'gpt-4.1-mini', policyVersion: 'price-sequence-v3', deploymentCommit: process.env.RENDER_GIT_COMMIT || null });
+    assert.deepEqual(await (await fetch(url + '/api/status')).json(), { configured: false, model: 'gpt-4.1-mini', policyVersion: 'price-sequence-v4', deploymentCommit: process.env.RENDER_GIT_COMMIT || null });
     assert.equal((await fetch(url + '/.env')).status, 404);
     assert.equal((await post(url)).status, 503);
   });
@@ -54,7 +54,7 @@ test('refusal, partial output and invalid response fields cannot become a tradin
 test('MA and candle opinions cannot independently authorize trading', async () => {
   for (const patch of [{priceSequence:{...priceSequence,candles:[]}}, {priceSequence:{...priceSequence,quality:'low'}}]) {
     await withServer({apiKey:'test',fetcher:async()=>Response.json({output:[{content:[{type:'output_text',text:JSON.stringify({...result,maConfirmation:'confirmed',ma5Cross:'up',ma5Slope:'up',ma20Slope:'up',...patch})}]}]})},async url=>{
-      const r=await (await post(url)).json(); assert.equal(r.signal,'hold'); assert.equal(r.policyVersion,'price-sequence-v3');
+      const r=await (await post(url)).json(); assert.equal(r.signal,'hold'); assert.equal(r.policyVersion,'price-sequence-v4');
     });
   }
 });
@@ -91,5 +91,18 @@ test('missing observation fields are a schema error, never pattern absence',asyn
 test('truncated provider output is reported as incomplete, never no pattern',async()=>{
  await withServer({apiKey:'test',fetcher:async()=>Response.json({status:'incomplete',output:[]})},async url=>{
    const response=await post(url);assert.equal(response.status,502);assert.equal((await response.json()).code,'MODEL_OUTPUT_INCOMPLETE');
+ });
+});
+test('historical reference date requires explicitly selected endpoint, never auto-closes',async()=>{
+ let calls=0;
+ await withServer({apiKey:'test',fetcher:async(_url,options)=>{calls++;const b=JSON.parse(options.body);assert.match(b.input[0].content[0].text,/과거 시점 검증/);assert.match(b.input[0].content[0].text,/모름/);return Response.json({output:[{content:[{type:'output_text',text:JSON.stringify(result)}]}]});}},async url=>{
+ const body={...request,analysisMode:'historical',referenceDate:'2000-01-01',lastBarState:'unknown'};
+ assert.equal((await post(url,body)).status,400);assert.equal(calls,0);
+ const data=await(await post(url,{...body,scopeConfirmed:true})).json();assert.equal(data.reference.date,'2000-01-01');assert.equal(data.assessment.current.context.lastBarState,'unknown');assert.equal(data.transport.serverResized,false);
+ });
+});
+test('observed endpoint after requested date requires recropping, not future-informed analysis',async()=>{
+ await withServer({apiKey:'test',fetcher:async()=>Response.json({output:[{content:[{type:'output_text',text:JSON.stringify({...result,observation:{...result.observation,endpointDate:'2002-01-01'}})}]}]})},async url=>{
+ const response=await post(url,{...request,analysisMode:'historical',referenceDate:'2001-01-01',scopeConfirmed:true});assert.equal(response.status,422);assert.equal((await response.json()).code,'SCOPE_DATE_MISMATCH');
  });
 });

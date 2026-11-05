@@ -54,6 +54,8 @@ Free 인스턴스는 서비스 중지·재시작 및 이용 한도가 있을 수
 
 기존 Render 서비스가 이 저장소의 `main`에 연결되어 있고 Auto-Deploy가 켜져 있으면 push 후 새 배포가 시작됩니다. 꺼져 있으면 해당 서비스에서 **Manual Deploy → Deploy latest commit**을 실행합니다. 새 서비스를 만들 필요는 없습니다.
 
-서비스 주소 뒤에 `/api/status`를 붙여 `policyVersion: "price-sequence-v3"`과 `deploymentCommit`이 GitHub 최신 커밋과 같은지 확인합니다. 이 응답에는 API 키 값이 포함되지 않습니다. Render의 Deploy 상태가 Live인지도 확인합니다.
+서비스 주소 뒤에 `/api/status`를 붙여 `policyVersion: "price-sequence-v4"`과 `deploymentCommit`이 GitHub 최신 커밋과 같은지 확인합니다. 이 응답에는 API 키 값이 포함되지 않습니다. Render의 Deploy 상태가 Live인지도 확인합니다.
 
 화면을 새로고침한 다음 차트를 다시 분석하세요. 기존 세션의 분석 기록은 이전 결과이므로 새 정책으로 자동 재분석되지 않습니다. 중기·1~3개월을 선택하고 같은 차트를 미보유/보유 중으로 각각 분석해 상단 관점과 행동 구분을 확인합니다. 규칙·한계 및 테스트 내역은 `docs/price-sequence.md`를 참고하세요.
+
+과거 시점 검증은 분석 목적에서 선택합니다. 기준일이 이미지 중간이면 범위 편집으로 이후 봉과 미래 정보를 가린 후 분석하세요. 최초 판단 고정 → 이후 차트 분석 → 사후 비교 순서입니다. 고정 판단은 해당 브라우저에 저장되므로 JSON 내보내기로 보관할 수 있습니다. 구현과 검증 한계는 `docs/historical-validation-v4.md`를 참고하세요.

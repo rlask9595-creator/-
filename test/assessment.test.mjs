@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {assessChart} from '../chart-assessment.mjs';
 import {analyzeSequence} from '../sequence-policy.mjs';
 const base=[10,12,15,12,11,12,15.2,12,11,12,13];
-const seq=(values)=>({scale:'price',quality:'high',limitations:'',candles:values.map((v,i)=>({label:`관찰 봉 ${i+1}`,x:(i+1)/200,high:v+.5,low:v-.5,close:v,ma20:null,completed:true,volumeExpansion:'unknown'}))});
+const seq=(values)=>({scale:'price',quality:'high',limitations:'',candles:values.map((v,i)=>({label:`관찰 봉 ${i+1}`,x:(i+1)/200,high:v+.5,low:v-.5,close:v,date:null,ma20:null,completed:true,volumeExpansion:'unknown'}))});
 const raw=(s)=>({readable:true,evidenceQuality:'medium',signal:'buy',title:'모델 의견',summary:'모델 관찰',trend:'고저점 상승',pattern:'반복 저항',volume:'거래량 미확인',support:'관찰 지지',resistance:'관찰 저항',reasons:['모델 관찰 근거'],priceSequence:s,historicalWindows:[],chartOverview:[{location:'왼쪽',regime:'range',evidence:'비슷한 고점 반복'}],priceContext:{precision:'relative',support:'직전 조정 저점',resistance:'이전 고점 구간',evidence:'형태 관찰'}});
 test('unknown final candle preserves historical candidates and valid prior analysis',()=>{
  const r=assessChart(raw(seq([...base,16,17])),{position:'none',lastBarState:'unknown'});
@@ -23,7 +23,7 @@ test('unreadable current region preserves independently readable historical wind
  const r=raw({scale:'unreadable',quality:'low',limitations:'오른쪽 봉 겹침',candles:[]});
  r.historicalWindows=[{location:'왼쪽 전환',context:'long_range',sequence:seq([...base,16,17])}];
  const a=assessChart(r,{lastBarState:'unknown'});
- assert.equal(a.current.title,'분석 정보 부족');assert.ok(a.historical.length);assert.equal(a.historical[0].patternKind,'장기 횡보 최초 돌파');assert.match(a.levels.support,/순서 미검증/);
+ assert.equal(a.current.title,'판독 정보 부족');assert.ok(a.historical.length);assert.equal(a.historical[0].patternKind,'장기 횡보 최초 돌파');assert.match(a.levels.support,/순서 미검증/);
 });
 test('an internal unreadable candle starts a new segment instead of deleting all later history',()=>{
  const s=seq([...base,16,0,...base,16]);s.candles[12].close=null;
@@ -44,7 +44,7 @@ test('separate rising consolidation can form a second breakout',()=>{
 test('failure is distinct from unmet and unavailable; first correction recovery does not force sale',()=>{
  const failed=assessChart(raw(seq([...base,16,15])),{lastBarState:'closed'});assert.ok(failed.current.evidence.some(e=>e.status==='실패'));
  const unmet=assessChart(raw(seq(base)),{lastBarState:'closed'});assert.ok(unmet.current.evidence.some(e=>e.status==='미충족'));
- const unavailable=assessChart(raw(seq([])),{});assert.equal(unavailable.current.title,'분석 정보 부족');assert.equal(unavailable.historyStatus,'unavailable');
+ const unavailable=assessChart(raw(seq([])),{});assert.equal(unavailable.current.title,'판독 정보 부족');assert.equal(unavailable.historyStatus,'unavailable');
 });
 test('immutable prefix event history including rapid loss and subsequent new structure',()=>{
  const s=seq([...base,16,19,22,20,21,23,25,10,12,14,11,10,12,14,11,10,12,15]);s.candles[18].volumeExpansion='observed';

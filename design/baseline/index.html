@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="ko">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#f7f0e5"><title>Chart Signal — 차트에서 찾는 다음 움직임</title><link rel="preload" href="/fonts/PretendardVariable.woff2" as="font" type="font/woff2" crossorigin><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#f7f0e5"><title>Chart Signal — 차트에서 찾는 다음 움직임</title><link rel="preload" href="/fonts/PretendardVariable.woff2" as="font" type="font/woff2" crossorigin><link rel="stylesheet" href="/style.css"><script src="/scope.js" defer></script><script src="/app.js" defer></script></head>
 <body>
   <div class="page-shell">
   <header class="topbar">
@@ -18,6 +18,7 @@
         <div class="controls-label">나의 분석 설정 <span>YOUR PERSPECTIVE</span></div>
         <div class="analysis-options"><div><label class="field-label" for="period">투자 기간</label><select id="period"><option>단기 · 수일~수주</option><option selected>중기 · 1~3개월</option><option>장기 · 6개월 이상</option></select></div>
         <div><div class="field-label" id="position-label">현재 보유 여부</div><div class="segmented" role="group" aria-labelledby="position-label"><button class="selected" id="not-holding" aria-pressed="true">미보유</button><button id="holding" aria-pressed="false">보유 중</button></div></div></div>
+        <div class="scope-settings"><label class="field-label" for="analysis-mode">분석 목적</label><select id="analysis-mode"><option value="latest">최신 차트 분석</option><option value="historical">과거 시점 검증</option></select><div id="historical-options" hidden><label class="field-label" for="reference-date">분석 기준일 · 선택 입력</label><input type="date" id="reference-date"><p>날짜만으로 봉을 자동 선택하지 않습니다. 이미지가 기준일에서 끝나지 않으면 아래 범위 편집에서 잘라 주세요.</p><label><input type="checkbox" id="scope-confirmed"> 선택한 이미지의 오른쪽 끝이 입력한 기준일의 봉임을 확인했습니다.</label></div></div>
         <div class="bar-state-field"><label class="field-label" for="last-bar-state">마지막 봉 상태</label><select id="last-bar-state"><option value="unknown">모름 · 마지막 봉 제외</option><option value="closed">마감 완료 · 사용자 확인</option><option value="open">진행 중</option></select></div>
         <button class="analyze-button" id="analyze-button" disabled><span>✧</span><span id="analyze-label">차트 분석하기</span><span>↗</span></button>
         <p class="privacy-note">이미지는 이 앱 서버에 저장하지 않습니다.<br>분석 시 OpenAI로 전송됩니다.</p>
@@ -37,7 +38,7 @@
           <span class="file-types">PNG, JPG, WEBP <i>·</i> 최대 8MB</span>
         </div>
         <div class="upload-alternatives"><span>파일로 준비하셨나요?</span><button id="choose-image" type="button">파일 선택 ↗</button></div>
-        <div class="preview" id="preview" hidden><div class="preview-top"><span id="file-name"></span><button id="remove-image" aria-label="이미지 제거">×</button></div><img id="chart-preview" alt="업로드한 차트"><div class="preview-bottom"><button id="enlarge-chart">크게 보기 ↗</button><button id="replace-image">다른 이미지 선택 ↗</button></div></div>
+        <div class="preview" id="preview" hidden><div class="preview-top"><span id="file-name"></span><button id="remove-image" aria-label="이미지 제거">×</button></div><img id="chart-preview" alt="업로드한 차트"><div class="preview-bottom"><button id="edit-scope">분석 범위·가림 편집</button><button id="enlarge-chart">크게 보기 ↗</button><button id="replace-image">다른 이미지 선택 ↗</button></div></div>
         <p id="upload-status" class="upload-status" role="status" aria-live="polite" hidden></p>
         <details class="capture-help"><summary>스크린샷 캡처 방법</summary><div class="capture-keys"><span>Windows <kbd>Win</kbd> + <kbd>Shift</kbd> + <kbd>S</kbd></span><span>Mac <kbd>⌃</kbd> + <kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>4</kbd></span></div></details>
 
@@ -56,6 +57,8 @@
     <footer><p><span>ⓘ</span> 이미지 기반 기술적 분석 참고 자료입니다. 실시간 시세·뉴스·재무정보를 반영하지 않으며, 수익을 보장하지 않습니다.</p><span>© 2026 CHART SIGNAL</span></footer>
   </main>
   </div>
+  <dialog id="scope-dialog"><div class="dialog-heading"><h2>분석 범위와 표시 가리기</h2><button class="close-dialog" aria-label="닫기">×</button></div><p>슬라이더로 마지막 분석 봉의 오른쪽 경계를 정하세요. 그 오른쪽의 봉·거래량·지표는 실제로 잘려 전송되지 않습니다. 날짜를 정확히 맞출 수 없다면 해당 날짜에서 끝나는 이미지를 사용하세요.</p><label>포함할 가로 범위 <input id="scope-cutoff" type="range" min="10" max="100" step="0.1" value="100"><output id="scope-percent">100%</output></label><p>이미지 위를 드래그하면 해당 사각형을 가립니다. 화면 밖 현재가·등락률·평균가·전체기간 매물대 등 미래 정보를 드러내는 표시를 가리세요. 가격축이 잘리면 상대 위치로 분석합니다.</p><canvas id="scope-canvas" aria-label="드래그로 가릴 영역 선택"></canvas><div class="dialog-actions"><button id="scope-undo">가림 취소</button><button id="scope-reset">전체 복원</button><button id="scope-apply">범위 적용</button></div></dialog>
+  <section id="review-panel" class="review-panel" hidden><h2>최초 판단 고정 · 사후 평가</h2><p id="review-status"></p><div class="review-actions"><button id="lock-judgment">이 과거 판단 고정</button><button id="export-judgment">고정 판단 파일 저장</button><button id="import-judgment">판단 파일 불러오기</button><input type="file" id="judgment-file" accept="application/json" hidden><button id="compare-later">현재 결과로 사후 평가</button><button id="clear-judgment">고정 해제</button></div><p>고정 판단은 이미지·API 키 없이 이 브라우저에 저장됩니다. 공용 기기에서는 사용 후 고정을 해제하세요. 이후 차트를 새로 업로드해 분석하고 사후 평가를 누르면 최초 판단을 바꾸지 않고 비교합니다.</p><div id="review-output"></div></section>
   <dialog id="chart-dialog"><div class="dialog-heading"><h2>차트 크게 보기</h2><button class="close-dialog" aria-label="닫기">×</button></div><button id="chart-zoom-toggle">원본 크기 / 화면 맞춤</button><div class="chart-zoom"><img id="chart-large" alt="확대된 업로드 차트"></div></dialog>
   <dialog id="settings-dialog"><form id="settings-form"><div class="dialog-heading"><h2>분석 연결 설정</h2><button type="button" class="close-dialog" aria-label="닫기">×</button></div><p>차트 이미지를 분석하려면 OpenAI API 연결이 필요합니다. API 사용 요금은 연결한 계정에 청구됩니다.</p><label for="api-key">OpenAI API 키</label><input id="api-key" type="password" autocomplete="off" placeholder="sk-…"><p class="dialog-note" id="key-note">키는 현재 탭의 메모리에서만 보관하며, 분석 요청 시 서버로 전송합니다. 새로고침하면 삭제됩니다.</p><p class="dialog-note">공개 배포 시 서버에 접근 제어와 사용량 제한을 추가하세요.</p><div class="dialog-actions"><button id="clear-key" type="button">키 삭제</button><button class="primary-button" type="submit">설정 적용</button></div></form></dialog>
   <dialog id="history-dialog"><div class="dialog-heading"><h2>이번 세션 기록</h2><button type="button" class="close-dialog" aria-label="닫기">×</button></div><p class="dialog-note">현재 탭에서 완료한 실제 분석만 표시합니다. 새로고침하면 삭제됩니다.</p><div id="history-list"></div></dialog>
