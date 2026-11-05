@@ -97,3 +97,11 @@ dialog .dialog-note { font-size: 11px; color: #a08d73; }
 .hero-copy>p{font-size:17px}.topbar nav a,.topbar nav button{font-size:15px}.field-label,.controls-label,select,.segmented button,.hero-primary,.analyze-button{font-size:16px}.hero-secondary{font-size:14px}.privacy-note{font-size:14px}
 @media(max-width:1050px) and (min-width:761px){.analysis-options{grid-template-columns:1fr}.intro{grid-template-columns:1fr 1.15fr}.visual-stage:not(:has(#preview:not([hidden]))){padding:12px}.drop-zone strong{font-size:21px}}
 @media(max-width:760px){.visual-stage:not(:has(#preview:not([hidden]))){height:auto;margin:20px 0;padding:10px 0}.visual-stage:not(:has(#preview:not([hidden]))) .upload-panel{padding:18px}.drop-zone{min-height:320px}.drop-zone strong{font-size:22px}.hero-copy>p{font-size:16px}.topbar nav{gap:16px}.topbar nav a,.topbar nav button{font-size:14px}.hero-primary{padding:10px 18px}.hero-actions{gap:14px}}
+/* Action-first result hierarchy requested by the user. */
+.bar-state-field{max-width:370px;margin-top:14px}.bar-state-field select{width:100%}
+.signal-card{color:#302c26}.signal-card h3{font-size:34px;line-height:1.3;margin:18px 0}.signal-card .decision-reason{font-size:18px;color:#42382d}
+.decision-evidence,.decision-next{margin-top:22px;padding:20px 24px;border:1px solid #dfc19c;border-radius:14px;background:#fffdf7}
+.decision-evidence h4,.decision-next h4,.decision-change h4{font-size:17px;margin:0 0 10px;color:#413221}.decision-evidence li{color:#43392d}.decision-next{background:#ffead3;border-left:5px solid #df8247}.decision-next p{margin:0;color:#413221}
+.decision-change{margin-top:20px}.decision-change p{color:#504537}.analysis-diagnostics{margin-top:20px}.analysis-diagnostics summary{cursor:pointer}.analysis-diagnostics pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f6eedf;padding:16px;font-size:12px}.price-precision{color:#6c5940}
+@media(min-width:761px){.intro:has(#preview:not([hidden])) .bar-state-field{grid-column:2;grid-row:4}.intro:has(#preview:not([hidden])) .analyze-button{grid-row:5}.intro:has(#preview:not([hidden])) .hero-copy>.privacy-note{grid-row:6}}
+@media(max-width:760px){.bar-state-field{max-width:none}.signal-card h3{font-size:28px}.signal-card .decision-reason{font-size:17px}.decision-evidence,.decision-next{padding:16px}.result-meta{line-height:1.9}}

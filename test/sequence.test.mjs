@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {analyzeSequence} from '../sequence-policy.mjs';
 export const base=[10,12,15,12,11,12,15.2,12,11,12,13];
-export function fixture(values=base) { return {scale:'price',quality:'high',limitations:'合成 OHLC',candles:values.map((v,i)=>({label:`봉 ${i+1}`,x:(i+1)/180,high:v+.5,low:v-.5,close:v,completed:true,ma20:null}))}; }
+export function fixture(values=base) { return {scale:'price',quality:'high',limitations:'合成 OHLC',candles:values.map((v,i)=>({label:`봉 ${i+1}`,x:(i+1)/180,high:v+.5,low:v-.5,close:v,completed:true,ma20:null,volumeExpansion:'unknown'}))}; }
 test('wick above resistance is not a closing breakout',()=>{
  const s=fixture([...base,15]); s.candles.at(-1).high=17;
  const r=analyzeSequence(s); assert.equal(r.stage,'wick'); assert.equal(r.signal,'hold');
@@ -49,7 +49,7 @@ test('a fresh structure after damage is evaluated separately',()=>{
  assert.ok(r.events.some(e=>e.stage==='damaged')); assert.ok(r.events.at(-1).resistance.sources.every(i=>i>19));
 });
 test('same sequence with price scale unavailable uses relative positions',()=>{
- const r=analyzeSequence({...fixture([...base,16]),scale:'relative'}); assert.match(r.resistance,/가격 아님/); assert.doesNotMatch(r.resistance,/원/);
+ const r=analyzeSequence({...fixture([...base,16]),scale:'relative'}); assert.match(r.resistance,/가격축 확인 불가/); assert.doesNotMatch(r.resistance,/원/);
 });
 test('historical markers use confirmation coordinates and distinguish extended breakouts',()=>{
  const s=fixture([...base,16]);s.candles.at(-1).x=.75;

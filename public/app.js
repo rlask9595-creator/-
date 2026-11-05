@@ -43,6 +43,7 @@ function setPosition(value) {
 $('#not-holding').addEventListener('click', () => setPosition('none'));
 $('#holding').addEventListener('click', () => setPosition('holding'));
 $('#period').addEventListener('change', clearResult);
+$('#last-bar-state').addEventListener('change', clearResult);
 function syncAnalysisActions() {
   $('#hero-sample-button').firstChild.textContent = image ? '내 차트 분석 ' : '예시 살펴보기 ';
   $('#sample-button').firstChild.textContent = image ? '내 차트 분석하기 ' : '예시 분석 살펴보기 ';
@@ -111,7 +112,7 @@ function busy(value) {
   $('#loading-state').hidden = !value;
   $('#analyze-button').disabled = value || !image;
   $('#analyze-label').textContent = value ? '분석 중…' : '차트 분석하기';
-  for (const selector of ['#period', '#not-holding', '#holding', '#remove-image', '#replace-image', '#choose-image', '#sample-button', '#hero-sample-button']) $(selector).disabled = value;
+  for (const selector of ['#period', '#last-bar-state', '#not-holding', '#holding', '#remove-image', '#replace-image', '#choose-image', '#sample-button', '#hero-sample-button']) $(selector).disabled = value;
   $('.result-panel').setAttribute('aria-busy', String(value));
 }
 $('#analyze-button').addEventListener('click', async () => {
@@ -120,10 +121,10 @@ $('#analyze-button').addEventListener('click', async () => {
   clearResult(); error(); $('#empty-state').hidden = true; $('#analysis-result').hidden = true; $('#result-badge').textContent = 'ANALYZING';
   controller = new AbortController(); busy(true);
   try {
-    const response = await fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: controller.signal, body: JSON.stringify({ image, period: $('#period').value, position, ...(apiKey ? { apiKey } : {}) }) });
+    const response = await fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: controller.signal, body: JSON.stringify({ image, period: $('#period').value, lastBarState:$('#last-bar-state').value, position, ...(apiKey ? { apiKey } : {}) }) });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || '분석에 실패했습니다. 다시 시도해 주세요.');
-    const entry = { result, period: $('#period').value, position, image };
+    const entry = { result, period: $('#period').value, lastBarState:$('#last-bar-state').value, position, image };
     history.unshift(entry); if (history.length > 5) history.pop();
     $('#history-count').textContent = history.length;
     renderResult(result, false);
@@ -137,27 +138,31 @@ $('#cancel-button').addEventListener('click', () => controller?.abort());
 function renderResult(result, demo) {
   function historicalEntries(result, demo) {
   if (demo || !image || !result.sequence) return '';
-  const entries = result.sequence.events.filter(e => e.stage === 'breakout');
+  const entries = result.assessment?.historical || result.sequence.events.filter(e => e.stage === 'breakout');
   const markers = entries.map((e,i) => Number.isFinite(e.x) && e.x>=0 && e.x<=1 ? `<line x1="${e.x*100}%" x2="${e.x*100}%" y1="34" y2="100%"/><circle cx="${e.x*100}%" cy="18" r="14"/><text x="${e.x*100}%" y="24">${i+1}</text>` : '').join('');
-  return `<div class="result-section-title">이 차트의 과거 매수 후보</div><p>그 시점의 완성봉으로 확인한 돌파입니다. 현재 매수 의견이나 수익이 보장된 최적 매수점은 아닙니다. 표시 위치는 이미지 판독에 따른 근사 위치입니다.</p>${entries.length ? `<div class="chart-annotation"><img src="${escape(image)}" alt="과거 돌파 확인 위치가 표시된 업로드 차트"><svg  aria-hidden="true">${markers}</svg></div><ol class="result-list">${entries.map(e=>`<li>${escape(e.confirmation)} · ${e.entryCandidate?'당시 매수 후보':'돌파 확인 · 당시에도 추격 진입 대기'} — ${escape(e.fact)}${e.x==null?' (이미지 좌표 미확인: 위치선 생략)':''}</li>`).join('')}</ol>` : '<p>확인 가능한 과거 돌파 매수 후보가 없습니다. 판독 부족 또는 조건 미충족이며, 좋은 매수 자리가 전혀 없었다는 뜻은 아닙니다.</p>'}`;
+  return `<div class="result-section-title">관찰된 과거 매수·매도 후보</div><p>완성봉에서 확인한 가격 움직임입니다. 매수 후보와 매도 경고를 구분합니다. 현재 매수 의견이나 수익이 보장된 최적 매수점은 아닙니다. 표시 위치는 이미지 판독에 따른 근사 위치입니다.</p>${entries.length ? `<div class="chart-annotation"><img src="${escape(image)}" alt="과거 돌파 확인 위치가 표시된 업로드 차트"><svg  aria-hidden="true">${markers}</svg></div><ol class="result-list">${entries.map(e=>`<li>${escape(e.confirmation)} · ${escape(e.patternKind||e.label)} · ${['sell','damaged','sharp'].includes(e.stage)?'비중 축소 검토':e.stage==='failed'?'돌파 실패':e.stage==='warning'?'첫 경고':e.entryCandidate||e.stage==='retest'?'매수 후보':'추가 확인 필요'} — ${escape(e.fact)} / 형성: ${escape(e.formation)} / 판단 변경: ${escape(e.invalidation||'해당 지지·저항 회복 또는 이탈')} ${e.x==null?' (이미지 좌표 미확인: 위치선 생략)':''}</li>`).join('')}</ol>` : `<p>${result.assessment?.historyStatus==='conditions_not_met'?'조건 미충족 · 판독한 구간에서 규칙을 충족하는 과거 후보가 확인되지 않았습니다.':'확인 불가 · 과거 구간의 연속 봉 정보가 부족합니다. 패턴이 없다는 뜻은 아닙니다.'}</p>`}`;
 }
   currentResult = result; demoVisible = demo;
   $('.result-panel').hidden = false;
   $('#empty-state').hidden = true; $('#analysis-result').hidden = false; $('#result-badge').textContent = demo ? 'SAMPLE / 예시' : 'ANALYSIS';
   const list = (items, cls = '') => `<ul class="result-list ${cls}">${items.map(item => `<li>${escape(item)}</li>`).join('')}</ul>`;
+  const a=result.assessment, current=a?.current;
   const insight = (label, value) => `<div class="insight"><div class="insight-label">${label}</div><p>${escape(value)}</p></div>`;
   $('#analysis-result').innerHTML = `<div class="result-content">
     ${demo ? '<div class="sample-notice">예시 전용 · 가상 차트와 미리 작성한 설명입니다. 업로드한 이미지의 분석 결과가 아닙니다.</div><img class="sample-thumb" src="/sample.svg" alt="예시용 가상 종목의 상승 추세 차트">' : ''}
-    <div class="result-meta"><span>${escape(result.symbol || '종목 확인 불가')} <span> / </span> ${escape(result.timeframe || '시간축 확인 불가')}</span><span>${demo ? '가상 데이터' : new Date(result.analyzedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span></div>
-    <div class="signal-card ${escape(result.signal)}"><div class="signal-top"><span class="signal-tag">${escape(labels[result.signal])} · ${result.readable ? '조건부 기술적 의견' : '판독 어려움'}</span><span class="quality">판독 근거 ${escape(qualityLabels[result.evidenceQuality])}</span></div><h3>${escape(result.title)}</h3><p>${escape(result.summary)}</p></div>
-    <div class="result-section-title">차트에서 읽은 흐름 <button id="copy-result">결과 복사 ↗</button></div>
+    <div class="result-meta"><span>${escape(result.symbol || '종목 확인 불가')} <span> / </span> ${escape(result.timeframe || '시간축 확인 불가')} · ${escape(current?.context.period || $('#period').value)} · ${current?.context.position==='holding'?'보유 중':'미보유'}</span><span>${demo ? '가상 데이터' : new Date(result.analyzedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span></div>
+    <div class="signal-card ${escape(result.signal)}"><div class="signal-top"><span class="signal-tag">현재 행동 · 조건부 기술적 의견</span><span class="quality">이미지 근거 품질 ${escape(qualityLabels[result.evidenceQuality])} · 수익 확률 아님</span></div><h3>${escape(result.title)}</h3><p class="decision-reason">${escape(result.summary)}</p>
+    <div class="decision-evidence"><h4>판단 근거</h4>${list(current?current.evidence.map(e=>e.status+' · '+e.text):result.reasons)}</div>
+    <div class="decision-next"><h4>다음 확인 조건</h4><p>${escape(result.nextStep)}</p></div>
+    <div class="decision-change"><h4>판단이 바뀌는 조건</h4><p>${escape(result.invalidation)}</p></div></div>
+    <div class="result-section-title">상세 분석 · 차트에서 읽은 흐름 <button id="copy-result">결과 복사 ↗</button></div>
+    ${a?.overview.length?`<div class="result-section-title">전체 차트의 구간 흐름</div>${list(a.overview.map(r=>r.location+' · '+({range:'횡보',up:'상승',pullback:'조정',down:'하락',unknown:'확인 불가'})[r.regime]+' — '+r.evidence))}`:''}
     <div class="insight-grid">${insight('01 / 추세', result.trend)}${insight('02 / 패턴', result.pattern)}${insight('03 / 거래량', result.volume)}</div>
-    <div class="levels"><div><span>지지선</span><strong>${escape(result.support || '확인 불가')}</strong></div><div><span>저항선</span><strong>${escape(result.resistance || '확인 불가')}</strong></div></div>
+    <p class="price-precision">가격 표시: ${escape(({exact:'정확값 · 이미지 관찰',approximate:'근사 구간',relative:'상대 위치',unknown:'확인 불가'})[a?.levels.precision]||'이미지 관찰')}</p><div class="levels"><div><span>지지선</span><strong>${escape(result.support || '확인 불가')}</strong></div><div><span>저항선</span><strong>${escape(result.resistance || '확인 불가')}</strong></div></div>
     ${historicalEntries(result, demo)}
-    <div class="result-section-title">판단의 근거</div>${list(result.reasons)}
+    ${a?.unavailable.length?`<div class="result-section-title">판단할 수 없는 항목</div>${list(a.unavailable)}`:''}
     <div class="result-section-title">함께 살펴볼 위험</div>${list(result.risks, 'risk-list')}
-    <div class="next-step"><h4>↗ 다음으로 확인할 것</h4><p>${escape(result.nextStep)}</p></div>
-    <p class="invalidation">판단 무효화 조건 · ${escape(result.invalidation)}</p>
+    ${a?`<details class="analysis-diagnostics"><summary>분석 과정 확인 · AI 관찰 / 서버 판단 / 화면 표시</summary><p>이 요청의 분석 필드만 표시합니다. 이미지와 API 키는 포함하지 않습니다.</p><pre>${escape(JSON.stringify(a.diagnostics,null,2))}</pre></details>`:''}
     <p class="result-disclaimer">판독 근거 수준은 수익 확률이 아닙니다. 이미지 촬영 이후의 시장 변화는 반영하지 않습니다.</p>
   </div>`;
   $('#copy-result').addEventListener('click', copyResult);
@@ -165,7 +170,7 @@ function renderResult(result, demo) {
 async function copyResult() {
   if (!currentResult) return;
   const r = currentResult;
-  const text = `${demoVisible ? '[예시 · 실제 분석 아님]\n' : ''}Chart Signal | ${labels[r.signal]}\n${r.title}\n${r.summary}\n${r.sequence ? '신호 기록 (형성 / 최초 확인)\n' + r.sequence.events.map(e => e.label + ': ' + e.formation + ' / ' + e.confirmation + ' · ' + e.fact).join('\n') : ''}\n\n${r.patternStatus ? '패턴 점검: ' + r.pattern + '\n위치: ' + r.patternLocation + '\n' + r.patternEvidence.map(v => '- ' + v).join('\n') + '\n후속 확인: ' + r.confirmation + '\n' : ''}추세: ${r.trend}\n패턴: ${r.pattern}\n거래량: ${r.volume}\n지지선: ${r.support || '확인 불가'}\n저항선: ${r.resistance || '확인 불가'}\n\n${r.maEvidence ? '지표 점검\n' + r.indicatorSummary + '\n갭: ' + r.gapZone + '\n' + r.gapEvidence.join('\n') + '\n5기간: ' + r.ma5 + '\n20기간: ' + r.ma20 + '\n60기간: ' + r.ma60 + '\n120기간: ' + r.ma120 + '\n' + r.maEvidence.join('\n') + '\n볼린저\n' + r.bbEvidence.join('\n') + '\n\n' : ''}근거\n${r.reasons.map(v => '- ' + v).join('\n')}\n\n위험\n${r.risks.map(v => '- ' + v).join('\n')}\n\n다음 확인: ${r.nextStep}\n무효화 조건: ${r.invalidation}\n\n이미지 기반 참고 자료이며 수익을 보장하지 않습니다.`;
+  const text = `${demoVisible ? '[예시 · 실제 분석 아님]\n' : ''}Chart Signal | ${labels[r.signal]}\n${r.title}\n${r.summary}\n${r.assessment?'분석 과정 비교\n'+JSON.stringify(r.assessment.diagnostics,null,2):''}\n${r.sequence ? '신호 기록 (형성 / 최초 확인)\n' + r.sequence.events.map(e => e.label + ': ' + e.formation + ' / ' + e.confirmation + ' · ' + e.fact).join('\n') : ''}\n\n${r.patternStatus ? '패턴 점검: ' + r.pattern + '\n위치: ' + r.patternLocation + '\n' + r.patternEvidence.map(v => '- ' + v).join('\n') + '\n후속 확인: ' + r.confirmation + '\n' : ''}추세: ${r.trend}\n패턴: ${r.pattern}\n거래량: ${r.volume}\n지지선: ${r.support || '확인 불가'}\n저항선: ${r.resistance || '확인 불가'}\n\n${r.maEvidence ? '지표 점검\n' + r.indicatorSummary + '\n갭: ' + r.gapZone + '\n' + r.gapEvidence.join('\n') + '\n5기간: ' + r.ma5 + '\n20기간: ' + r.ma20 + '\n60기간: ' + r.ma60 + '\n120기간: ' + r.ma120 + '\n' + r.maEvidence.join('\n') + '\n볼린저\n' + r.bbEvidence.join('\n') + '\n\n' : ''}근거\n${r.reasons.map(v => '- ' + v).join('\n')}\n\n위험\n${r.risks.map(v => '- ' + v).join('\n')}\n\n다음 확인: ${r.nextStep}\n무효화 조건: ${r.invalidation}\n\n이미지 기반 참고 자료이며 수익을 보장하지 않습니다.`;
   try { await navigator.clipboard.writeText(text); $('#copy-result').textContent = '복사 완료 ✓'; }
   catch { $('#copy-result').textContent = '복사 불가 · 브라우저 권한 확인'; }
 }
@@ -196,7 +201,7 @@ $('#history-button').addEventListener('click', () => {
     button.append(title, meta);
     button.addEventListener('click', () => {
       if (controller) return;
-      fileVersion++; image = entry.image; position = entry.position; $('#period').value = entry.period;
+      fileVersion++; image = entry.image; position = entry.position; $('#period').value = entry.period; $('#last-bar-state').value=entry.lastBarState || 'unknown';
       for (const [id, selected] of [['#not-holding', position === 'none'], ['#holding', position === 'holding']]) { $(id).classList.toggle('selected', selected); $(id).setAttribute('aria-pressed', String(selected)); }
       $('#chart-preview').src = image; $('#file-name').textContent = '세션 기록의 차트 이미지'; $('#preview').hidden = false; $('#drop-zone').hidden = true; $('#analyze-button').disabled = false;
       $('#upload-status').hidden = true;

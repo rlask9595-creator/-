@@ -18,7 +18,7 @@ try {
  const wait=async expression=>{for(let i=0;i<70;i++){if(await evaluate(expression))return;await new Promise(r=>setTimeout(r,100));}throw new Error('Timed out: '+expression);};
  await send('Runtime.enable'); await send('Page.enable');
  await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1100,deviceScaleFactor:1,mobile:false});
- await send('Page.navigate',{url:'http://127.0.0.1:3000'});
+ await send('Page.navigate',{url:'http://127.0.0.1:' + (process.env.CHART_TEST_PORT || '3000')});
  await wait(`document.querySelector('#sample-button') && document.readyState==='complete'`);
  await evaluate(`document.fonts.ready.then(()=>true)`);
  assert.equal(await evaluate(`document.fonts.check('500 14px Pretendard')`),true);
